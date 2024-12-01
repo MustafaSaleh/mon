@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Monitor</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div id="login-container" class="container">
+        <h2>Login</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div id="app-container" class="container hidden">
+        <nav>
+            <span id="username-display"></span>
+            <button id="logout-btn">Logout</button>
+        </nav>
+        
+        <section id="add-service">
+            <h2>Add New Service</h2>
+            <form id="service-form">
+                <input type="text" name="name" placeholder="Service Name" required>
+                <select name="type" required>
+                    <option value="ping">Ping</option>
+                    <option value="http">HTTP/HTTPS</option>
+                </select>
+                <input type="text" name="target" placeholder="Target URL/IP" required>
+                <input type="number" name="check_frequency" placeholder="Check Frequency (minutes)" required>
+                <input type="number" name="retry_threshold" placeholder="Retry Threshold" required>
+                <input type="number" name="grace_period" placeholder="Grace Period (minutes)" required>
+                <input type="email" name="alert_email" placeholder="Alert Email">
+                <button type="submit">Add Service</button>
+            </form>
+        </section>
+
+        <section id="services">
+            <h2>Services</h2>
+            <div id="services-list"></div>
+        </section>
+
+
+
+
+        <section>
+
+            <div id="smtp-config" class="section">
+                <h2>SMTP Configuration</h2>
+                <form id="smtp-form">
+                    <div>
+                        <label for="smtp-host">SMTP Host:</label>
+                        <input type="text" id="smtp-host" name="host" required>
+                    </div>
+                    <div>
+                        <label for="smtp-port">Port:</label>
+                        <input type="number" id="smtp-port" name="port" value="587" required>
+                    </div>
+                    <div>
+                        <label for="smtp-username">Username:</label>
+                        <input type="text" id="smtp-username" name="username" required>
+                    </div>
+                    <div>
+                        <label for="smtp-password">Password:</label>
+                        <input type="password" id="smtp-password" name="password" required>
+                    </div>
+                    <div>
+                        <label for="smtp-from">From Email:</label>
+                        <input type="email" id="smtp-from" name="from_email" required>
+                    </div>
+                    <div>
+                        <label for="smtp-tls">Use TLS:</label>
+                        <input type="checkbox" id="smtp-tls" name="use_tls" checked>
+                    </div>
+                    <button type="submit">Save Configuration</button>
+                    <button type="button" id="test-smtp">Test SMTP</button>
+                </form>
+            </div>
+
+            
+        </section>
+    </div>
+</body>
+<script src="/js/app.js"></script>
+</html>
+
+

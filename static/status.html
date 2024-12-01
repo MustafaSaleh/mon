@@ -1,0 +1,261 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Monitor</title>
+    <script src="/js/tailwind.js"></script>
+    <script src="/js/feather-icons.js"></script>
+     <style>
+        .service-card {
+            transition: transform 0.2s;
+        }
+        .service-card:hover {
+            transform: translateY(-2px);
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        canvas { 
+            max-height: 300px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <div class="flex justify-between items-center">
+                
+                <div class="flex items-center space-x-4">
+                    <img src="/logo.webp" alt="Logo" class="h-12 w-auto">
+                    <span class="text-xl font-semibold text-gray-800">Service Status</span>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="setTimeRange('hour')" class="px-4 py-2 rounded-md text-sm font-medium transition-colors" id="hour-btn">Last Hour</button>
+                        <button onclick="setTimeRange('day')" class="px-4 py-2 rounded-md text-sm font-medium transition-colors" id="day-btn">Last Day</button>
+                        <button onclick="setTimeRange('week')" class="px-4 py-2 rounded-md text-sm font-medium transition-colors" id="week-btn">Last Week</button>
+                    </div>
+                    <div class="flex items-center space-x-2 text-gray-500">
+                        <i data-feather="refresh-cw" class="w-4 h-4"></i>
+                        <span id="last-update" class="text-sm"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <p class="text-gray-500">Total Services</p>
+                    <p id="total-services" class="text-2xl font-bold text-gray-900">-</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <p class="text-gray-500">Services Up</p>
+                    <p id="services-up" class="text-2xl font-bold text-green-600">-</p>
+                </div>
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <p class="text-gray-500">Services Down</p>
+                    <p id="services-down" class="text-2xl font-bold text-red-600">-</p>
+                </div>
+            </div>
+        </header>
+
+        <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+        <div id="metrics-container" class="hidden mt-8">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <h2 id="service-name" class="text-2xl font-bold mb-6"></h2>
+                <canvas id="metrics-chart" class="w-full"></canvas>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-500 mb-1">Average Response Time</p>
+                        <p id="avg-response-time" class="text-xl font-bold"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-500 mb-1">Uptime</p>
+                        <p id="uptime" class="text-xl font-bold"></p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <p class="text-gray-500 mb-1">Outages</p>
+                        <p id="outages" class="text-xl font-bold"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedService = null;
+        let currentTimeRange = 'hour';
+
+        function setTimeRange(range) {
+            currentTimeRange = range;
+            updateTimeRangeButtons();
+            if (selectedService) {
+                handleServiceClick(selectedService, document.getElementById('service-name').textContent);
+            }
+        }
+
+        function updateTimeRangeButtons() {
+            ['hour', 'day', 'week'].forEach(range => {
+                const btn = document.getElementById(`${range}-btn`);
+                if (range === currentTimeRange) {
+                    btn.classList.add('bg-blue-600', 'text-white');
+                    btn.classList.remove('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-100', 'text-gray-600', 'hover:bg-gray-200');
+                }
+            });
+        }
+
+        async function fetchServices() {
+            const response = await fetch('/api/services/');
+            const data = await response.json();
+            renderServices(data.services);
+            updateStats(data.services);
+            updateLastUpdate();
+        }
+
+        function renderServices(services) {
+            const container = document.getElementById('services-grid');
+            container.innerHTML = services.map(service => `
+                <div class="service-card bg-white rounded-lg shadow-sm p-6 cursor-pointer" onclick="handleServiceClick(${service.id}, '${service.name}')">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-semibold">${service.name}</h3>
+                        <span class="inline-flex items-center">
+                            <span class="h-3 w-3 rounded-full ${service.status === 'up' ? 'bg-green-400' : 'bg-red-400'} pulse mr-2"></span>
+                            <span class="${service.status === 'up' ? 'text-green-600' : 'text-red-600'}">${service.status}</span>
+                        </span>
+                    </div>
+                    <div class="space-y-2 text-gray-600">
+                        <p class="flex items-center">
+                            <i data-feather="${service.type === 'ping' ? 'activity' : 'globe'}" class="w-4 h-4 mr-2"></i>
+                            ${service.target}
+                        </p>
+                        <p class="flex items-center">
+                            <i data-feather="clock" class="w-4 h-4 mr-2"></i>
+                            ${service.response_time?.toFixed(2) || 'N/A'}ms
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+            feather.replace();
+        }
+
+        function updateStats(services) {
+            const total = services.length;
+            const up = services.filter(s => s.status === 'up').length;
+            document.getElementById('total-services').textContent = total;
+            document.getElementById('services-up').textContent = up;
+            document.getElementById('services-down').textContent = total - up;
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = 
+                `Last updated at ${now.toLocaleTimeString()}`;
+        }
+
+        async function handleServiceClick(serviceId, serviceName) {
+            selectedService = serviceId;
+            document.getElementById('service-name').textContent = serviceName;
+            try {
+                const response = await fetch(`/api/service_metrics/${serviceId}/${currentTimeRange}`);
+                const data = await response.json();
+                showMetrics(data);
+                drawChart(data);
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+            }
+        }
+
+        function showMetrics(metrics) {
+            document.getElementById('metrics-container').classList.remove('hidden');
+            document.getElementById('avg-response-time').textContent = `${metrics.metrics.avg_response_time.toFixed(2)}ms`;
+            document.getElementById('uptime').textContent = `${metrics.metrics.uptime.toFixed(2)}%`;
+            document.getElementById('outages').textContent = metrics.metrics.outage_count;
+        }
+
+        function drawChart(data) {
+            const canvas = document.getElementById('metrics-chart');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight || 300;
+            
+            canvas.width = width;
+            canvas.height = height;
+            ctx.clearRect(0, 0, width, height);
+            
+            const maxResponseTime = Math.max(...data.response_times) || 1;
+            const padding = 40;
+            
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            const yGridCount = 5;
+            for (let i = 0; i <= yGridCount; i++) {
+                const y = padding + (height - 2 * padding) * (i / yGridCount);
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+            }
+
+            if (data.response_times.length > 1) {
+                const xStep = (width - 2 * padding) / (data.response_times.length - 1);
+                const yScale = (height - 2 * padding) / maxResponseTime;
+
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                data.response_times.forEach((value, i) => {
+                    const x = padding + i * xStep;
+                    const y = height - padding - (value * yScale);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+
+                data.response_times.forEach((value, i) => {
+                    const x = padding + i * xStep;
+                    const y = height - padding - (value * yScale);
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fill();
+                });
+
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px system-ui';
+                
+                ctx.textAlign = 'center';
+                data.timestamps.forEach((time, i) => {
+                    if (i % Math.ceil(data.timestamps.length / 6) === 0) {
+                        const x = padding + i * xStep;
+                        ctx.fillText(time, x, height - padding + 20);
+                    }
+                });
+
+                ctx.textAlign = 'right';
+                for (let i = 0; i <= yGridCount; i++) {
+                    const value = (maxResponseTime * (yGridCount - i)) / yGridCount;
+                    const y = padding + (height - 2 * padding) * (i / yGridCount);
+                    ctx.fillText(`${value.toFixed(0)}ms`, padding - 8, y + 4);
+                }
+            }
+        }
+
+        // Initial load
+        fetchServices();
+        updateTimeRangeButtons();
+        setInterval(fetchServices, 60000);
+        feather.replace();
+    </script>
+</body>
+</html>
