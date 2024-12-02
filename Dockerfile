@@ -16,4 +16,4 @@ COPY . .
 RUN mkdir -p /app/data && \
     chmod 777 /app/data
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3009", "--workers", "1"]
